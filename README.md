@@ -1,5 +1,5 @@
 # Binarylane Backup  
-A simple PHP script to download Binarylane server backups and store them locally.  
+A simple PHP script to generate and download Binarylane server backups and store them locally.  
 
 ## Features  
 
