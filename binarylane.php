@@ -198,7 +198,6 @@ class BinaryLaneBackup {
     }
 }
 
-// Usage example:
 try {
     $apiToken = 'API_KEY';
     $backupDir = '/backup';
