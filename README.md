@@ -32,5 +32,5 @@ Set up a cron job to run the script daily or at an interval that suits your back
 - Avoid overloading the Binarylane API by downloading server images excessively. Running once per day would be acceptable and pick a time that would be the least impactful.
 - This script processes one backup at a time and includes options to introduce additional delays to minimise infrastructure impact.
 - Only the primary VM disk gets downloaded, if you have multiple disks this won't work for you.
-- 
+  
 Feel free to suggest improvements or report issues!
