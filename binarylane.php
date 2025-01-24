@@ -93,7 +93,7 @@ class BinaryLaneBackup {
                         $downloadUrl = $this->apiRequest("images/{$latestBackup['id']}/download")['link']['disks'][0]['compressed_url'];
                         $backupFile = $this->downloadBackup($downloadUrl, $serverName);
 
-                        $this->checkBackupIntegrity($backupFile, $serverName);
+                        $this->checkBackupIntegrity($backupFile, $serverName, $latestBackup['id']);
                         $this->rotateBackups($serverName);
 
                         echo "\nSuccessfully processed backup for $serverName\n";
@@ -122,35 +122,62 @@ class BinaryLaneBackup {
             }
 
             if ($action['status'] === 'errored') {
-                throw new Exception("Action failed: " . ($action['result_data'] ?? 'Unknown error'));
+                throw new Exception("Action failed: " . ($action['error_message'] ?? 'Unknown error'));
             }
 
             if (time() - $start > $timeout) {
                 throw new Exception("Action timed out after {$timeout} seconds");
             }
 
-            sleep(30); // Wait 30 seconds before checking again
+            sleep(10); // Wait 30 seconds before checking again
         }
     }
 
 
-    private function checkBackupIntegrity($filePath, $serverName) {
-        $fileSize = filesize($filePath);
-        if ($fileSize < 100 * 1024 * 1024) { // 100 MB in bytes
-            $message = "Backup for $serverName is corrupted (size: " . number_format($fileSize / 1024 / 1024, 2) . " MB)";
-            echo "$message\n";
-            $this->sendDiscordAlert($message);
+    private function checkBackupIntegrity($filePath, $serverName, $imageId) {
+        $actualSize = filesize($filePath);
+        
+        try {
+            $imageInfo = $this->apiRequest("images/$imageId")['image'];
+            $expectedBytes = $imageInfo['size_gigabytes'] * 1024 * 1024 * 1024;
+            
+            // Allow for small variation (e.g. 5% difference)
+            $sizeDifference = abs($actualSize - $expectedBytes) / $expectedBytes;
+            echo sprintf("Size difference: %.1f%%\n", $sizeDifference * 100);
+            
+            if ($sizeDifference > 0.05 || $actualSize < 100 * 1024 * 1024) { 
+                $message = sprintf(
+                    "Backup integrity check failed for %s:\n" .
+                    "Expected size: %.2f GB\n" .
+                    "Actual size: %.2f GB\n" .
+                    "Difference: %.1f%%",
+                    $serverName,
+                    $expectedBytes / 1024 / 1024 / 1024,
+                    $actualSize / 1024 / 1024 / 1024,
+                    $sizeDifference * 100
+                );
+                echo "$message\n";
+                $this->sendDiscordAlert($message);
+            }
+        } catch (Exception $e) {
+            // If we can't get the image size from API, fall back to basic size check
+            if ($actualSize < 100 * 1024 * 1024) {
+                $message = "Backup for $serverName is corrupted (size: " . number_format($actualSize / 1024 / 1024, 2) . " MB)";
+                echo "$message\n";
+                $this->sendDiscordAlert($message);
+            }
         }
     }
 
     private function downloadBackup($url, $serverName) {
         $date = date('Y-m-d');
+        $timestamp = date('His'); 
         $targetDir = "{$this->backupDir}/$serverName";
         if (!file_exists($targetDir)) {
             mkdir($targetDir, 0755, true);
         }
 
-        $targetFile = "$targetDir/backup-$date.tar.gz";
+        $targetFile = "$targetDir/backup-$date-$timestamp.qp";
         $fp = fopen($targetFile, 'w+');
         $ch = curl_init($url);
 
@@ -188,11 +215,14 @@ class BinaryLaneBackup {
             return;
         }
 
-        $files = glob("$targetDir/backup-*.tar.gz");
+        $files = glob("$targetDir/backup-*.qp");
         foreach ($files as $file) {
-            $fileDate = strtotime(basename($file, '.tar.gz'));
-            if ($fileDate && (time() - $fileDate) > ($this->retentionDays * 86400)) {
-                unlink($file);
+            if (preg_match('/backup-(\d{4}-\d{2}-\d{2})(?:-\d{6})?\.qp$/', $file, $matches)) {
+                $fileDate = strtotime($matches[1]);
+                if ($fileDate && (time() - $fileDate) > ($this->retentionDays * 86400)) {
+                    unlink($file);
+                    echo "Deleted old backup: " . basename($file) . "\n";
+                }
             }
         }
     }
