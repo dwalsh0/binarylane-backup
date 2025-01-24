@@ -129,7 +129,7 @@ class BinaryLaneBackup {
                 throw new Exception("Action timed out after {$timeout} seconds");
             }
 
-            sleep(10); // Wait 30 seconds before checking again
+            sleep(30); // Wait 30 seconds before checking again
         }
     }
 
