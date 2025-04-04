@@ -177,7 +177,7 @@ class BinaryLaneBackup {
             mkdir($targetDir, 0755, true);
         }
 
-        $targetFile = "$targetDir/backup-$date-$timestamp.qp";
+        $targetFile = "$targetDir/backup-$date-$timestamp.zst";
         $fp = fopen($targetFile, 'w+');
         $ch = curl_init($url);
 
@@ -215,9 +215,9 @@ class BinaryLaneBackup {
             return;
         }
 
-        $files = glob("$targetDir/backup-*.qp");
+        $files = glob("$targetDir/backup-*.zst");
         foreach ($files as $file) {
-            if (preg_match('/backup-(\d{4}-\d{2}-\d{2})(?:-\d{6})?\.qp$/', $file, $matches)) {
+            if (preg_match('/backup-(\d{4}-\d{2}-\d{2})(?:-\d{6})?\.zst$/', $file, $matches)) {
                 $fileDate = strtotime($matches[1]);
                 if ($fileDate && (time() - $fileDate) > ($this->retentionDays * 86400)) {
                     unlink($file);
